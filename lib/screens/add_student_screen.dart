@@ -303,9 +303,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         ),
       );
     } catch (e) {
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Gagal: $e'),
+          content: Text(errorMsg),
           backgroundColor: AppColors.violation,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

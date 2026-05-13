@@ -14,13 +14,13 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'nip' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
         ]);
 
         $user = User::create([
             'name' => $request->name,
-            'email' => $request->email,
+            'nip' => $request->nip,
             'password' => Hash::make($request->password),
         ]);
 
@@ -39,18 +39,18 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'nullable|string|email',
+            'nip' => 'nullable|string',
             'nis' => 'nullable|string',
             'password' => 'required|string',
         ]);
 
-        if ($request->has('email')) {
-            if (!Auth::guard('web')->attempt($request->only('email', 'password'))) {
+        if ($request->has('nip')) {
+            if (!Auth::guard('web')->attempt($request->only('nip', 'password'))) {
                 throw ValidationException::withMessages([
-                    'email' => ['Email atau password salah.'],
+                    'nip' => ['NIP atau password salah.'],
                 ]);
             }
-            $user = User::where('email', $request->email)->firstOrFail();
+            $user = User::where('nip', $request->nip)->firstOrFail();
             $token = $user->createToken('auth_token')->plainTextToken;
             $userData = $user;
         } else if ($request->has('nis')) {
@@ -64,7 +64,7 @@ class AuthController extends Controller
             $userData = $student;
         } else {
             throw ValidationException::withMessages([
-                'email' => ['Email atau NIS diperlukan.'],
+                'nip' => ['NIP atau NIS diperlukan.'],
             ]);
         }
 

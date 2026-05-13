@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class StudentController extends Controller
 {
@@ -40,9 +41,10 @@ class StudentController extends Controller
             'gender' => 'required|in:L,P',
         ]);
 
-        $student = Student::create($request->only([
-            'name', 'nis', 'class_name', 'gender', 'photo_url',
-        ]));
+        $data = $request->only(['name', 'nis', 'class_name', 'gender', 'photo_url']);
+        $data['password'] = Hash::make('password123'); // Default password
+
+        $student = Student::create($data);
 
         return response()->json([
             'success' => true,

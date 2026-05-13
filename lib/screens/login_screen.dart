@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../data/api_service.dart';
+import '../providers/app_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _isTeacherLogin = false;
   String? _errorMessage;
 
   late AnimationController _fadeController;
@@ -65,11 +68,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       final result = await ApiService.login(
         _identifierController.text.trim(),
         _passwordController.text,
+        isTeacher: _isTeacherLogin,
       );
 
       if (!mounted) return;
 
       if (result['success'] == true) {
+        // Reload provider data with new role
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        await provider.refreshData();
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         setState(() {
@@ -188,12 +196,21 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 24),
+                        // Role Toggle
                         Center(
-                          child: Text(
-                            'Masuk dengan NISN Anda',
-                            style: TextStyle(
-                              fontSize: 14, color: Colors.white.withOpacity(0.8),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildRoleTab('Siswa', !_isTeacherLogin, () => setState(() => _isTeacherLogin = false)),
+                                _buildRoleTab('Guru / Admin', _isTeacherLogin, () => setState(() => _isTeacherLogin = true)),
+                              ],
                             ),
                           ),
                         ),
@@ -258,15 +275,15 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   const SizedBox(height: 16),
                                 ],
 
-                                // NISN / Email
-                                _buildLabel('NISN / Email'),
+                                // NISN / NIP
+                                _buildLabel(_isTeacherLogin ? 'NIP (Nomor Induk Pegawai)' : 'NIS (Nomor Induk Siswa)'),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: _identifierController,
-                                  keyboardType: TextInputType.text,
+                                  keyboardType: TextInputType.number,
                                   style: const TextStyle(fontSize: 14),
                                   decoration: InputDecoration(
-                                    hintText: 'NISN atau Email',
+                                    hintText: _isTeacherLogin ? 'Masukkan NIP Anda' : 'Masukkan NIS Anda',
                                     prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
                                     fillColor: AppColors.surface,
                                     filled: true,
@@ -284,7 +301,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                     ),
                                   ),
                                   validator: (val) {
-                                    if (val == null || val.isEmpty) return 'Masukkan NISN atau Email';
+                                    if (val == null || val.isEmpty) {
+                                      return _isTeacherLogin ? 'Masukkan NIP' : 'Masukkan NIS';
+                                    }
                                     return null;
                                   },
                                 ),
@@ -398,11 +417,11 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             child: Column(
                               children: [
                                 Text(
-                                  'Demo Siswa: 2024001',
+                                  'Demo Siswa: NIS 2024001',
                                   style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.9)),
                                 ),
                                 Text(
-                                  'Demo Admin: admin@edutrack.com',
+                                  'Demo Guru: NIP 198001012005011003',
                                   style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.9)),
                                 ),
                                 Text(
@@ -432,6 +451,28 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       style: const TextStyle(
         fontSize: 13, fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
+      ),
+    );
+  }
+
+  Widget _buildRoleTab(String title, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? AppColors.primary : Colors.white,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }

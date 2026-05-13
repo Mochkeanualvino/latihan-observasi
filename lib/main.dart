@@ -14,6 +14,7 @@ import 'screens/add_violation_screen.dart';
 import 'screens/add_achievement_screen.dart';
 import 'screens/add_student_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/scan_qr_screen.dart';
 import 'data/models/student.dart';
 import 'data/api_service.dart';
 
@@ -64,6 +65,8 @@ class EduTrackApp extends StatelessWidget {
                   return _buildPageRoute(const AddAchievementScreen());
                 case '/add-student':
                   return _buildPageRoute(const AddStudentScreen());
+                case '/scan-qr':
+                  return _buildPageRoute(const ScanQrScreen());
                 default:
                   return _buildPageRoute(const HomeScreen());
               }
@@ -105,7 +108,7 @@ class HomeScreen extends StatelessWidget {
           const ReportScreen(),
         ],
       ),
-      floatingActionButton: Container(
+      floatingActionButton: provider.isAdmin ? Container(
         width: 58,
         height: 58,
         decoration: BoxDecoration(
@@ -125,8 +128,8 @@ class HomeScreen extends StatelessWidget {
           backgroundColor: Colors.transparent,
           child: const Icon(Icons.add_rounded, size: 28, color: Colors.white),
         ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      ) : null,
+      floatingActionButtonLocation: provider.isAdmin ? FloatingActionButtonLocation.centerDocked : null,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.cardDark : AppColors.card,
@@ -140,16 +143,24 @@ class HomeScreen extends StatelessWidget {
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(context, 0, Icons.dashboard_rounded, 'Dashboard', provider),
-                _buildNavItem(context, 1, Icons.people_rounded, 'Siswa', provider),
-                const SizedBox(width: 56), // Space for FAB
-                _buildNavItem(context, 3, Icons.assessment_rounded, 'Laporan', provider),
-                _buildNavItem(context, 4, Icons.settings_rounded, 'Lainnya', provider),
-              ],
-            ),
+            child: provider.isAdmin 
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(context, 0, Icons.dashboard_rounded, 'Dashboard', provider),
+                  _buildNavItem(context, 1, Icons.people_rounded, 'Siswa', provider),
+                  const SizedBox(width: 56), // Space for FAB
+                  _buildNavItem(context, 3, Icons.assessment_rounded, 'Laporan', provider),
+                  _buildNavItem(context, 4, Icons.settings_rounded, 'Lainnya', provider),
+                ],
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(context, 0, Icons.dashboard_rounded, 'Dashboard', provider),
+                  _buildNavItem(context, 4, Icons.settings_rounded, 'Lainnya', provider),
+                ],
+              ),
           ),
         ),
       ),
@@ -339,6 +350,7 @@ class HomeScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(24),
@@ -346,98 +358,99 @@ class HomeScreen extends StatelessWidget {
             color: isDark ? AppColors.cardDark : AppColors.card,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.borderDark : AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Pengaturan',
-                style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildSettingsTile(
-                isDark: isDark,
-                icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                title: 'Mode Gelap',
-                trailing: Switch(
-                  value: isDark,
-                  onChanged: (_) => provider.toggleTheme(),
-                  activeColor: AppColors.primary,
-                ),
-              ),
-              _buildSettingsTile(
-                isDark: isDark,
-                icon: Icons.refresh_rounded,
-                title: 'Refresh Data',
-                trailing: Icon(
-                  Icons.chevron_right_rounded,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  provider.refreshData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Data berhasil diperbarui'),
-                      backgroundColor: AppColors.achievement,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                },
-              ),
-              _buildSettingsTile(
-                isDark: isDark,
-                icon: Icons.info_outline_rounded,
-                title: 'Tentang Aplikasi',
-                trailing: Icon(
-                  Icons.chevron_right_rounded,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Logout Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await provider.logout();
-                    if (context.mounted) {
-                      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                    }
-                  },
-                  icon: const Icon(Icons.logout_rounded, size: 20),
-                  label: const Text('Keluar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.violation.withOpacity(0.1),
-                    foregroundColor: AppColors.violation,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.borderDark : AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'EduTrack+ v1.0.0',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                const SizedBox(height: 20),
+                Text(
+                  'Pengaturan',
+                  style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-            ],
+                const SizedBox(height: 20),
+                _buildSettingsTile(
+                  isDark: isDark,
+                  icon: isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  title: 'Mode Gelap',
+                  trailing: Switch(
+                    value: isDark,
+                    onChanged: (_) => provider.toggleTheme(),
+                    activeColor: AppColors.primary,
+                  ),
+                ),
+                _buildSettingsTile(
+                  isDark: isDark,
+                  icon: Icons.refresh_rounded,
+                  title: 'Refresh Data',
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    provider.refreshData();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Data berhasil diperbarui'),
+                        backgroundColor: AppColors.achievement,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  },
+                ),
+                _buildSettingsTile(
+                  isDark: isDark,
+                  icon: Icons.info_outline_rounded,
+                  title: 'Tentang Aplikasi',
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Logout Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final navigator = Navigator.of(context, rootNavigator: true);
+                      navigator.pop(); // Close bottom sheet
+                      await provider.logout();
+                      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+                    },
+                    icon: const Icon(Icons.logout_rounded, size: 20),
+                    label: const Text('Keluar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.violation.withOpacity(0.1),
+                      foregroundColor: AppColors.violation,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'EduTrack+ v1.0.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         );
       },

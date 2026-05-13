@@ -29,6 +29,7 @@ class ApiService {
     await prefs.remove('auth_token');
     await prefs.remove('user_name');
     await prefs.remove('user_email');
+    await prefs.remove('user_role');
   }
 
   static Future<Map<String, String>> _headers() async {
@@ -42,13 +43,12 @@ class ApiService {
 
   // ============ AUTH ============
 
-  static Future<Map<String, dynamic>> login(String identifier, String password) async {
-    final isEmail = identifier.contains('@');
+  static Future<Map<String, dynamic>> login(String identifier, String password, {bool isTeacher = false}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/login'),
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       body: jsonEncode({
-        if (isEmail) 'email': identifier else 'nis': identifier,
+        if (isTeacher) 'nip': identifier else 'nis': identifier,
         'password': password,
       }),
     );
@@ -58,18 +58,19 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       final user = data['data']['user'];
       await prefs.setString('user_name', user['name'] ?? 'User');
-      await prefs.setString('user_email', user['email'] ?? user['nis'] ?? '');
+      await prefs.setString('user_email', user['nip'] ?? user['nis'] ?? '');
+      await prefs.setString('user_role', isTeacher ? 'admin' : 'student');
     }
     return data;
   }
 
-  static Future<Map<String, dynamic>> register(String name, String email, String password, String passwordConfirmation) async {
+  static Future<Map<String, dynamic>> register(String name, String nip, String password, String passwordConfirmation) async {
     final response = await http.post(
       Uri.parse('$baseUrl/register'),
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       body: jsonEncode({
         'name': name,
-        'email': email,
+        'nip': nip,
         'password': password,
         'password_confirmation': passwordConfirmation,
       }),
@@ -80,7 +81,7 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       final user = data['data']['user'];
       await prefs.setString('user_name', user['name'] ?? 'User');
-      await prefs.setString('user_email', user['email'] ?? '');
+      await prefs.setString('user_email', user['nip'] ?? '');
     }
     return data;
   }

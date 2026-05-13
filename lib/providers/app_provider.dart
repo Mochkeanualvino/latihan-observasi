@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/student.dart';
 import '../data/models/violation.dart';
 import '../data/models/achievement.dart';
@@ -17,6 +18,7 @@ class AppProvider extends ChangeNotifier {
   bool _useApi = true; // true = use Laravel API, false = use dummy data
   String _userName = '';
   String _userEmail = '';
+  String _userRole = 'admin'; // Default to admin for safety
   Map<String, dynamic> _dashboardData = {};
 
   AppProvider() {
@@ -34,6 +36,9 @@ class AppProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get userName => _userName;
   String get userEmail => _userEmail;
+  String get userRole => _userRole;
+  bool get isAdmin => _userRole == 'admin';
+  bool get isStudent => _userRole == 'student';
   Map<String, dynamic> get dashboardData => _dashboardData;
 
   // Filtered students
@@ -51,24 +56,45 @@ class AppProvider extends ChangeNotifier {
     return filtered;
   }
 
+  Student? get currentStudent {
+    if (!isStudent) return null;
+    try {
+      return _students.firstWhere((s) => s.nis == _userEmail);
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Stats
   int get totalStudents => _dashboardData['total_students'] ?? _students.length;
   int get totalViolations => _dashboardData['total_violations'] ?? _violations.length;
   int get totalAchievements => _dashboardData['total_achievements'] ?? _achievements.length;
-  int get totalViolationPoints => _dashboardData['total_violation_points'] ?? _violations.fold(0, (sum, v) => sum + v.points);
-  int get totalAchievementPoints => _dashboardData['total_achievement_points'] ?? _achievements.fold(0, (sum, a) => sum + a.points);
+  
+  int get totalViolationPoints {
+    if (isStudent) return currentStudent?.totalViolationPoints ?? 0;
+    return _dashboardData['total_violation_points'] ?? _violations.fold(0, (sum, v) => sum + v.points);
+  }
+  
+  int get totalAchievementPoints {
+    if (isStudent) return currentStudent?.totalAchievementPoints ?? 0;
+    return _dashboardData['total_achievement_points'] ?? _achievements.fold(0, (sum, a) => sum + a.points);
+  }
 
   // Recent activities (combined and sorted by date)
   List<Map<String, dynamic>> get recentActivities {
-    if (_dashboardData.containsKey('recent_activities')) {
-      return List<Map<String, dynamic>>.from(_dashboardData['recent_activities'].map((a) => {
-        ...a,
-        'date': DateTime.parse(a['date']),
+    if (_dashboardData.containsKey('recent_activities') && isAdmin) {
+      return List<Map<String, dynamic>>.from(_dashboardData['recent_activities'].map((a) {
+        final Map<String, dynamic> item = Map<String, dynamic>.from(a as Map);
+        item['date'] = DateTime.parse(item['date'].toString());
+        return item;
       }));
     }
     
     final List<Map<String, dynamic>> activities = [];
+    final studentId = currentStudent?.id;
+    
     for (var v in _violations) {
+      if (isStudent && v.studentId != studentId) continue;
       activities.add({
         'type': 'violation',
         'title': v.category,
@@ -80,6 +106,7 @@ class AppProvider extends ChangeNotifier {
       });
     }
     for (var a in _achievements) {
+      if (isStudent && a.studentId != studentId) continue;
       activities.add({
         'type': 'achievement',
         'title': a.title,
@@ -180,6 +207,11 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      _userName = prefs.getString('user_name') ?? '';
+      _userEmail = prefs.getString('user_email') ?? '';
+      _userRole = prefs.getString('user_role') ?? 'admin';
+      
       if (_useApi) {
         await _loadFromApi();
       } else {
@@ -197,18 +229,18 @@ class AppProvider extends ChangeNotifier {
   Future<void> _loadFromApi() async {
     try {
       final studentsData = await ApiService.getStudents();
-      _students = studentsData.map((s) => Student.fromJson(s)).toList();
+      _students = studentsData.map((s) => Student.fromJson(Map<String, dynamic>.from(s as Map))).toList();
 
       final violationsData = await ApiService.getViolations();
-      _violations = violationsData.map((v) => Violation.fromJson(v)).toList();
+      _violations = violationsData.map((v) => Violation.fromJson(Map<String, dynamic>.from(v as Map))).toList();
 
       final achievementsData = await ApiService.getAchievements();
-      _achievements = achievementsData.map((a) => Achievement.fromJson(a)).toList();
+      _achievements = achievementsData.map((a) => Achievement.fromJson(Map<String, dynamic>.from(a as Map))).toList();
 
       // Load dashboard data for more efficient stats
       final dashboardResponse = await ApiService.getDashboard();
       if (dashboardResponse['success'] == true) {
-        _dashboardData = dashboardResponse['data'];
+        _dashboardData = Map<String, dynamic>.from(dashboardResponse['data'] as Map);
       }
     } catch (e) {
       rethrow;
